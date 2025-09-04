@@ -2,6 +2,7 @@
 const express = require('express');
 const fetch = require('node-fetch'); // npm i node-fetch@2
 const cors = require('cors');
+const path = require('path')
 const bodyParser = require('body-parser');
 
 const app = express();
@@ -26,7 +27,9 @@ async function sendToTelegram(token, chatId, text, options = {}) {
   });
   return res.json();
 }
-
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 // endpoint kirim ke 1 user
 app.post('/api/send', async (req, res) => {
   try {
