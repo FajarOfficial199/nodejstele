@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Telegram Web Sender — All Alert</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-b from-slate-900 to-sky-800 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-3xl bg-white/5 backdrop-blur-md rounded-2xl p-8 shadow-2xl border border-white/10">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-extrabold text-white">Telegram Web Sender</h1>
+        <p class="text-sm text-slate-200/80">Kirim pesan cepat ke Telegram — single send &amp; <span class="font-semibold">All Alert (broadcast)</span></p>
+      </div>
+      <div class="text-sm text-slate-300">
+        <span class="inline-block px-3 py-1 rounded-full bg-white/6">Secure: token lokal</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="p-4 rounded-xl bg-white/6 border border-white/5">
+        <label class="text-slate-200 text-sm">Bot Token</label>
+        <input id="token" class="mt-2 w-full p-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-300" placeholder="123456:ABC-DEF..." />
+
+        <label class="text-slate-200 text-sm mt-4 block">User ID / Chat ID</label>
+        <input id="userid" class="mt-2 w-full p-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-300" placeholder="123456789 or 123,456,789 (broadcast)" />
+
+        <label class="text-slate-200 text-sm mt-4 block">Pesan</label>
+        <textarea id="message" rows="6" class="mt-2 w-full p-3 rounded-lg bg-white/5 border border-white/10 text-white placeholder-slate-300" placeholder="Tulis pesan di sini..."></textarea>
+      </div>
+
+      <div class="p-4 rounded-xl bg-white/6 border border-white/5 flex flex-col justify-between">
+        <div>
+          <h2 class="text-white font-bold">Preview</h2>
+          <div id="previewBox" class="mt-4 p-4 rounded-lg bg-white/6 border border-white/6 text-slate-50 min-h-[140px]">
+            <em class="text-slate-300">Pesan akan tampil di sini saat kamu mengetik...</em>
+          </div>
+
+          <div class="mt-4 text-slate-300 text-sm">
+            <p><strong>Hint:</strong> Untuk broadcast masukkan beberapa user id dipisah koma, misal: <code>12345,67890</code></p>
+            <p class="mt-2">Gunakan format <code>HTML</code> untuk bold/italic (<code>&lt;b&gt;bold&lt;/b&gt;</code>).</p>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button id="sendBtn" class="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold shadow-lg">Send</button>
+          <button id="broadcastBtn" class="flex-1 py-3 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-slate-900 font-semibold shadow-lg">All Alert</button>
+        </div>
+
+        <div class="mt-4 text-center">
+          <button id="clearBtn" class="text-sm px-3 py-2 rounded-md bg-white/6 text-white/80 hover:bg-white/10">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="log" class="mt-6 text-sm text-slate-300"></div>
+  </div>
+
+<script>
+  const tokenEl = document.getElementById('token');
+  const userEl = document.getElementById('userid');
+  const messageEl = document.getElementById('message');
+  const previewBox = document.getElementById('previewBox');
+  const log = document.getElementById('log');
+
+  function updatePreview() {
+    const txt = messageEl.value || '<em>Pesan akan tampil di sini saat kamu mengetik...</em>';
+    // render limited HTML for preview (not executing script)
+    previewBox.innerHTML = txt.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+  }
+
+  messageEl.addEventListener('input', updatePreview);
+  updatePreview();
+
+  function showLog(html) {
+    log.innerHTML = html + '<hr class="my-2 border-white/5" />' + log.innerHTML;
+  }
+
+  async function postJson(url, payload) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return r.json();
+  }
+
+  document.getElementById('sendBtn').addEventListener('click', async () => {
+    const token = tokenEl.value.trim();
+    const userId = userEl.value.trim();
+    const message = messageEl.value.trim();
+    if (!token || !userId || !message) return alert('Lengkapi token, user id, dan pesan.');
+
+    showLog(`<div class="text-yellow-300">Mengirim ke ${userId}...</div>`);
+    try {
+      const res = await postJson('/api/send', { token, userId, message });
+      if (res.ok) {
+        alert('Pesan terkirim!');
+        showLog(`<div class="text-green-300">Terkirim ke ${userId} — message_id: ${res.result.result.message_id}</div>`);
+      } else {
+        alert('Gagal: ' + (res.error || JSON.stringify(res)));
+        showLog(`<div class="text-red-300">Gagal: ${JSON.stringify(res)}</div>`);
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+      showLog(`<div class="text-red-300">Error: ${err.message}</div>`);
+    }
+  });
+
+  document.getElementById('broadcastBtn').addEventListener('click', async () => {
+    const token = tokenEl.value.trim();
+    const userIds = userEl.value.trim();
+    const message = messageEl.value.trim();
+    if (!token || !userIds || !message) return alert('Lengkapi token, user id(s), dan pesan.');
+
+    showLog(`<div class="text-yellow-300">Broadcast ke: ${userIds}...</div>`);
+    try {
+      const res = await postJson('/api/broadcast', { token, userIds, message });
+      if (res.ok) {
+        alert(`Broadcast selesai — ${res.summary.successes}/${res.summary.total} sukses`);
+        showLog(`<div class="text-green-300">Broadcast ringkasan: ${res.summary.successes}/${res.summary.total} sukses</div>`);
+      } else {
+        alert('Gagal broadcast: ' + (res.error || JSON.stringify(res)));
+        showLog(`<div class="text-red-300">Gagal broadcast: ${JSON.stringify(res)}</div>`);
+      }
+    } catch (err) {
+      alert('Error: ' + err.message);
+      showLog(`<div class="text-red-300">Error: ${err.message}</div>`);
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    tokenEl.value = '';
+    userEl.value = '';
+    messageEl.value = '';
+    updatePreview();
+    log.innerHTML = '';
+  });
+</script>
+</body>
+</html>
